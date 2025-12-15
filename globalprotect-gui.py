@@ -29,6 +29,7 @@ def run_continuously(indicator, interval=1):
 
 
 def main():
+    ensure_session_bus_or_exit()
     indicator = appindicator.Indicator.new("customtray",
                                            os.path.join(sys.path[0], "network-vpn-no-route-symbolic-red.svg"),
                                            appindicator.IndicatorCategory.APPLICATION_STATUS)
@@ -43,7 +44,8 @@ def main():
 
 def set_icon_thread_function(indicator):
     icon = get_gp_status()
-    indicator.set_icon(icon)
+    # set_icon is deprecated; use set_icon_full(icon, desc)
+    indicator.set_icon_full(icon, "GlobalProtect status icon")
 
 
 def log(output):
@@ -72,23 +74,23 @@ def is_interface_up(interface):
 def menu():
     gtk_menu = gtk.Menu()
 
-    command_connect = gtk.MenuItem('Connect')
+    command_connect = gtk.MenuItem(label='Connect')
     command_connect.connect('activate', connect)
     gtk_menu.append(command_connect)
 
-    command_disconnect = gtk.MenuItem('Disconnect')
+    command_disconnect = gtk.MenuItem(label='Disconnect')
     command_disconnect.connect('activate', disconnect)
     gtk_menu.append(command_disconnect)
 
-    command_details = gtk.MenuItem('Details')
+    command_details = gtk.MenuItem(label='Details')
     command_details.connect('activate', details)
     gtk_menu.append(command_details)
 
-    command_about = gtk.MenuItem('About')
+    command_about = gtk.MenuItem(label='About')
     command_about.connect('activate', about)
     gtk_menu.append(command_about)
 
-    exit_tray = gtk.MenuItem('Close')
+    exit_tray = gtk.MenuItem(label='Close')
     exit_tray.connect('activate', quit_trey)
     gtk_menu.append(exit_tray)
 
@@ -123,6 +125,23 @@ def run_command(command):
 
 def quit_trey(_):
     gtk.main_quit()
+
+
+def ensure_session_bus_or_exit():
+    # If a DBus session address is missing, try to point to the user bus
+    addr = os.environ.get('DBUS_SESSION_BUS_ADDRESS')
+    if addr:
+        return
+    uid = os.getuid()
+    user_bus = f"/run/user/{uid}/bus"
+    if os.path.exists(user_bus):
+        os.environ['DBUS_SESSION_BUS_ADDRESS'] = f"unix:path={user_bus}"
+        return
+    print(
+        "Error: No DBus session detected. Install/enable a user session bus (e.g., 'sudo apt install dbus-user-session' or 'sudo apt install dbus-x11'), then log out/in and try again.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 if __name__ == "__main__":
